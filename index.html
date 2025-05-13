@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>File Diff Tool</title>
+    <title>File Diff Tool (Static)</title>
 </head>
 <body>
-    <h1>File Comparison Tool</h1>
+    <h1>File Comparison Tool (Pure JS)</h1>
     <form id="compareForm">
         <label>File 1:
             <input type="file" id="file1" required>
@@ -77,7 +77,7 @@
             const header = `000000000HEADER00000${String(file2Unique.length).padStart(10, '0')}${' '.repeat(2508)}`;
             const outputLines = [header, ...file2Unique];
 
-            return outputLines.join('\r\n');
+            return outputLines.join('\r\n'); // CRLF
         }
 
         async function readFile(file) {
@@ -106,12 +106,20 @@
 
             const outputContent = processFiles(file1Content, file2Content);
 
-            // Show result in new browser tab
-            const newWindow = window.open('', '_blank');
-            newWindow.document.write('<pre>' + outputContent.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>');
-            newWindow.document.title = `${outputFileName}_unique.txt`;
+            // Trigger download
+            const blob = new Blob([outputContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
 
-            document.getElementById('result').innerText = 'Result opened in new tab.';
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${outputFileName}_unique.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+
+            document.getElementById('result').innerText = 'Download started.';
         });
     </script>
 </body>
