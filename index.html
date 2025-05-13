@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>File Diff Tool (Static)</title>
+</head>
+<body>
+    <h1>File Comparison Tool (Pure JS)</h1>
+    <form id="compareForm">
+        <label>File 1:
+            <input type="file" id="file1" required>
+        </label><br><br>
+
+        <label>File 2:
+            <input type="file" id="file2" required>
+        </label><br><br>
+
+        <label>Output File Name (no extension):
+            <input type="text" id="outputFileName" required>
+        </label><br><br>
+
+        <button type="submit">Compare Files</button>
+    </form>
+
+    <div id="result" style="margin-top:20px;"></div>
+
+    <script>
+        const TRAN_TYPES = ["CASH", "CACH", "NGIN", "CURX"];
+
+        function mask(value, start, stop) {
+            return value.slice(0, start) + '*'.repeat(stop - start) + value.slice(stop);
+        }
+
+        function areEqual(t1, t2) {
+            return (
+                t1.slice(0, 50) === t2.slice(0, 50) &&
+                t1.slice(106, 120) === t2.slice(106, 120) &&
+                t1.slice(120, 130) === t2.slice(120, 130) &&
+                t1.slice(170, 190) === t2.slice(170, 190) &&
+                t1.slice(190, 191) === t2.slice(190, 191) &&
+                t1.slice(246, 406) === t2.slice(246, 406)
+            );
+        }
+
+        function processFiles(file1Content, file2Content) {
+            let file1Unique = file1Content.filter(x => TRAN_TYPES.includes(x.slice(120, 124)));
+            let file2Unique = file2Content.filter(x => TRAN_TYPES.includes(x.slice(120, 124)));
+
+            let exact = file1Unique.filter(x => file2Unique.includes(x));
+
+            file1Unique = file1Unique.filter(x => !exact.includes(x));
+            file2Unique = file2Unique.filter(x => !exact.includes(x));
+
+            let file1ReferenceDifference = [];
+            let file2ReferenceDifference = [];
+
+            let file1OtherDifference = [];
+            let file2OtherDifference = [];
+
+            for (let entry1 of [...file1Unique]) {
+                let entry2 = file2Unique.find(x => areEqual(entry1, x));
+                if (entry2) {
+                    if (mask(entry1, 216, 246) === mask(entry2, 216, 246)) {
+                        file1ReferenceDifference.push(entry1);
+                        file2ReferenceDifference.push(entry2);
+                    } else {
+                        file1OtherDifference.push(entry1);
+                        file2OtherDifference.push(entry2);
+                    }
+                    file2Unique = file2Unique.filter(x => x !== entry2);
+                }
+            }
+
+            file1Unique = file1Unique.filter(x => !file1ReferenceDifference.includes(x) && !file1OtherDifference.includes(x));
+            file2Unique = file2Unique.filter(x => !file2ReferenceDifference.includes(x) && !file2OtherDifference.includes(x));
+
+            const header = `000000000HEADER00000${String(file2Unique.length).padStart(10, '0')}${' '.repeat(2508)}`;
+            const outputLines = [header, ...file2Unique];
+
+            return outputLines.join('\n');
+        }
+
+        async function readFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(/\r?\n/).slice(1));  // Skip header line
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        document.getElementById('compareForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const file1 = document.getElementById('file1').files[0];
+            const file2 = document.getElementById('file2').files[0];
+            const outputFileName = document.getElementById('outputFileName').value.trim();
+
+            if (!file1 || !file2 || !outputFileName) {
+                alert('Please fill out all fields.');
+                return;
+            }
+
+            const file1Content = await readFile(file1);
+            const file2Content = await readFile(file2);
+
+            const outputContent = processFiles(file1Content, file2Content);
+
+            // Download as file
+            const blob = new Blob([outputContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${outputFileName}_unique.txt`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+            document.getElementById('result').innerText = 'Download complete.';
+        });
+    </script>
+</body>
+</html>
